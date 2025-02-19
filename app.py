@@ -25,4 +25,4 @@ iface = gr.Interface(
 # Launch the interface
 if __name__ == "__main__":
     logging.info("Launching Gradio interface...")
-    iface.launch() 
+    iface.launch(share=True)  # Set share=True to create a public link 
