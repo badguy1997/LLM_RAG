@@ -11,15 +11,17 @@ import uuid
 # 🔹 Step 1: Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# 🔹 Step 2: Initialize Ollama LLM
-llm = OllamaLLM(model="deepseek-r1:1.5b")
+# 🔹 Step 2: Initialize Multiple LLMs
+llm_general = OllamaLLM(model="deepseek-r1:1.5b")  # General model
+llm_specialized = OllamaLLM(model="llama3.2:latest")  # Specialized model
 
 # 🔹 Step 3: Initialize ChromaDB with Embeddings
 embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 vector_db = Chroma(persist_directory="./chroma_db", embedding_function=embedding_function)
 
-# 🔹 Step 4: Define RAG Chain
-rag_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vector_db.as_retriever(), chain_type="stuff")
+# 🔹 Step 4: Define RAG Chains for Each Model
+rag_chain_general = RetrievalQA.from_chain_type(llm=llm_general, retriever=vector_db.as_retriever(), chain_type="stuff")
+rag_chain_specialized = RetrievalQA.from_chain_type(llm=llm_specialized, retriever=vector_db.as_retriever(), chain_type="stuff")
 
 # # Check if database is empty before adding new documents
 # if vector_db._collection.count() == 0:
@@ -53,15 +55,19 @@ rag_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vector_db.as_retrieve
 # 🔹 Step 9: Query RAG Pipeline
 def get_rag_response(query_string):
     logging.info(f"Received query: {query_string}")  # Log the received query
-    response = rag_chain.invoke({"query": query_string})  # Get the response
 
-    # Check if the response is structured as expected
-    if isinstance(response, dict) and "result" in response:
-        logging.info(f"Response generated: {response['result']}")  # Log the response
-        return response["result"]  # Return the complete response
-    else:
-        logging.error("Unexpected response format: {}".format(response))  # Log an error if the format is unexpected
-        return "An error occurred while processing your request."
+    # Get responses from both models
+    response_general = rag_chain_general.invoke({"query": query_string})
+    response_specialized = rag_chain_specialized.invoke({"query": query_string})
+
+    # Log the responses for debugging
+    logging.info(f"General model response: {response_general}")
+    logging.info(f"Specialized model response: {response_specialized}")
+
+    # Combine responses (example: choose the one with the highest confidence or simply concatenate)
+    combined_response = f"General: {response_general['result']}\nSpecialized: {response_specialized['result']}"
+    
+    return combined_response  # Return the combined response
 
 # Example usage
 if __name__ == "__main__":
